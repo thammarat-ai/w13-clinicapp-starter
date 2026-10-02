@@ -1,0 +1,35 @@
+# checkpoint step-03 — workflow deploy Web → Static Web App
+# หมายเหตุ: ของจริง Azure สร้างให้เองตอนสร้าง SWA (CP4.1) ชื่อไฟล์จะเป็น
+# azure-static-web-apps-<random>.yml — ไฟล์นี้คือ reference ที่สอนในคาบ
+# ── ต้องแก้ 2 จุด: secret token และ VITE_API_BASE ──
+name: Build and deploy clinic web to Static Web App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/azure-web.yml'
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          # ← secret นี้ Azure ตั้งให้เองตอนสร้าง SWA
+          #   (ชื่อจริงจะเป็น AZURE_STATIC_WEB_APPS_API_TOKEN_XXXXX)
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: 'web'        # ← React อยู่โฟลเดอร์ web
+          api_location: ''           # ไม่มี API แบบ SWA-managed — API แยกอยู่ App Service
+          output_location: 'dist'    # Vite build ออก dist
+        env:
+          # ← สำคัญสุด (CP4.2): บอกหน้าเว็บว่า API อยู่ไหน ตอน build
+          #   ไม่มี proxy บน cloud เหมือนตอน local!
+          VITE_API_BASE: https://app-clinicapp-api-<username>.azurewebsites.net
