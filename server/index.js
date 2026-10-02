@@ -53,6 +53,29 @@ app.post('/appointments', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// ── คาบ B: ฟีเจอร์ "ยกเลิกนัด" ─────────────────────────────
+// DELETE /appointments/:id
+//   200 { deleted: id }      — ยกเลิกสำเร็จ
+//   400 { error: 'invalid_id' } — id ไม่ใช่จำนวนเต็มบวก (เช็คก่อนแตะ DB)
+//   404 { error: 'not_found' }  — ไม่มีนัด id นี้
+app.delete('/appointments/:id', async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'invalid_id', hint: 'id must be a positive integer' });
+  }
+  try {
+    const pool = await getSqlPool();
+    const r = await pool.request()
+      .input('id', sql.Int, id)
+      .query('DELETE FROM appointments OUTPUT DELETED.id WHERE id = @id');
+    if (r.recordset.length === 0) {
+      return res.status(404).json({ error: 'not_found', id });
+    }
+    res.json({ deleted: id });
+  } catch (e) { next(e); }
+});
+// ────────────────────────────────────────────────────────────
+
 app.use((err, _req, res, _next) => {
   if (err.code === 'NO_DB_CONFIG') {
     return res.status(503).json({
@@ -64,6 +87,14 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'internal_error', message: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`clinic-api listening on :${PORT}`);
-});
+// แยก "การสร้าง app" ออกจาก "การเปิด port"
+// — run ตรงๆ (node index.js) ถึงจะ listen
+// — test import เข้ามาจะได้ app ไปเปิด port ของตัวเองแทน (ไม่ชนกัน)
+const isDirectRun = process.argv[1] && process.argv[1].endsWith('index.js');
+if (isDirectRun) {
+  app.listen(PORT, () => {
+    console.log(`clinic-api listening on :${PORT}`);
+  });
+}
+
+export default app;
